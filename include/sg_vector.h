@@ -12,6 +12,12 @@
 #define SG_EXTERN_C_END
 #endif
 
+#ifdef SG_DEFINE_STATIC_INTERFACE
+#define SG_INTERFACE static
+#else
+#define SG_INTERFACE extern
+#endif
+
 SG_EXTERN_C_BEGIN
 
 typedef struct sg_vector_allocator_interface
@@ -31,25 +37,25 @@ typedef struct sg_vec
     uint32_t m_element_count;
 } sg_vec;
 
-void sg_vector_internal_create(sg_vec* p_vector, sg_vector_allocator* p_allocator, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t element_count);
+SG_INTERFACE void sg_vector_internal_create(sg_vec* p_vector, sg_vector_allocator* p_allocator, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t element_count);
 
-void sg_vector_internal_destroy(sg_vec* p_vector);
+SG_INTERFACE void sg_vector_internal_destroy(sg_vec* p_vector);
 
-void sg_vector_internal_reserve(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t element_count);
+SG_INTERFACE void sg_vector_internal_reserve(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t element_count);
 
-void sg_vector_internal_resize(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t element_count);
+SG_INTERFACE void sg_vector_internal_resize(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t element_count);
 
-void* sg_vector_internal_at(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes, size_t index);
+SG_INTERFACE void* sg_vector_internal_at(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes, uint32_t index);
 
-void* sg_vector_internal_data(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes);
+SG_INTERFACE void* sg_vector_internal_data(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes);
 
-void* sg_vector_internal_back(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes);
+SG_INTERFACE void* sg_vector_internal_back(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes);
 
-void* sg_vector_internal_push(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes);
+SG_INTERFACE void* sg_vector_internal_push(sg_vec* p_vector, uint64_t element_hash, uint32_t element_size_in_bytes);
 
-size_t sg_vector_internal_size(sg_vec* p_vector);
+SG_INTERFACE size_t sg_vector_internal_size(sg_vec* p_vector);
 
-uint64_t sg_vector_internal_element_type_hash(const char* sz_element_type_name);
+SG_INTERFACE uint64_t sg_vector_internal_element_type_hash(const char* sz_element_type_name);
 
 #define sg_vector_create(p_vector, p_allocator, element_hash, element_type, element_count) sg_vector_internal_create(p_vector, p_allocator, element_hash, sizeof(element_type), element_count)
 
