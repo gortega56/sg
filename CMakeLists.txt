@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(sg VERSION 1.0 LANGUAGES C CXX)
+
+set(CMAKE_C_STANDARD 89)
+set(CMAKE_C_STANDARD_REQUIRED TRUE)
+set(CMAKE_C_EXTENSIONS FALSE)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_EXTENSIONS FALSE)
+
+add_library(sg INTERFACE)
+
+set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/sg_vector.h
+)
+
+target_sources(${PROJECT_NAME} INTERFACE "$<BUILD_INTERFACE:${SOURCE_FILES}>")
+
+target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE 
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include"> 
+    "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
+
+add_custom_target(standard_gear SOURCES ${SOURCE_FILES})
+
+enable_testing()
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unit_tests)
