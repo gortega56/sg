@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(sg_unit_tests LANGUAGES C CXX)
-
-set(CMAKE_C_STANDARD 89)
-set(CMAKE_C_STANDARD_REQUIRED TRUE)
-set(CMAKE_C_EXTENSIONS FALSE)
+project(sg_unit_tests LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -22,9 +18,7 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-set(SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
-
-add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
 target_link_libraries(${PROJECT_NAME} gtest_main sg)
 
