@@ -3,15 +3,10 @@
 
 extern "C" 
 {
-    #include "../include/sg_vector.h"
+#include "sg_slice.h"
+#include "sg_vector.h"
+#include "sg_hash_table.h"    
 }
-
-#define DEBUG_TEST_ENABLE_CREATE    1
-#define DEBUG_TEST_ENABLE_DESTROY   1
-#define DEBUG_TEST_ENABLE_RESERVE   1
-#define DEBUG_TEST_ENABLE_RESIZE    1
-#define DEBUG_TEST_ENABLE_EMPLACE   1
-#define DEBUG_TEST_ENABLE_PUSH      1
 
 #define VECTOR_SIZE 4096
 
@@ -22,7 +17,22 @@ namespace sg
 {
     namespace unit_tests
     {
-        #if DEBUG_TEST_ENABLE_CREATE
+        TEST(sg_slice, usage)
+        {
+            u32* p_arr = new u32[VECTOR_SIZE];
+            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+                p_arr[i] = i;
+
+            sg_slice slice = sg_slice_make(p_arr, VECTOR_SIZE / 2, VECTOR_SIZE / 2, sizeof(u32));
+            for (u32 i = 0; i < slice._count; ++i)
+                ASSERT_TRUE(sg_slice_at(&slice, u32, i) == VECTOR_SIZE / 2 + i);
+
+            sg_slice sub = sg_slice_to_slice(&slice, slice._count / 2, slice._count / 2);
+            for (u32 i = 0; i < sub._count; ++i)
+                ASSERT_TRUE(sg_slice_at(&sub, u32, i) == (VECTOR_SIZE - VECTOR_SIZE / 4) + i);
+            delete[] p_arr;
+        }
+
         TEST(sg_vector, create)
         {
             sg_vector vector = sg_vector_create(VECTOR_SIZE, sizeof(uint32_t), 0);
@@ -51,9 +61,7 @@ namespace sg
 
             sg_vector_destroy(&vector);
         }
-        #endif
 
-        #if DEBUG_TEST_ENABLE_DESTROY
         TEST(sg_vector, destroy)
         {
             sg_vector vector = sg_vector_create(VECTOR_SIZE, sizeof(uint32_t), 0);
@@ -65,9 +73,7 @@ namespace sg
             ASSERT_TRUE(vector._size == 0);
             ASSERT_TRUE(vector._stride == 0);
         }
-        #endif
 
-        #if DEBUG_TEST_ENABLE_RESERVE
         TEST(sg_vector, reserve)
         {
             sg_vector vector = sg_vector_create(0, sizeof(uint32_t), 0);
@@ -81,9 +87,7 @@ namespace sg
 
             sg_vector_destroy(&vector);
         }
-        #endif
 
-        #if DEBUG_TEST_ENABLE_RESIZE
         TEST(sg_vector, resize)
         {
             sg_vector vector = sg_vector_create(0, sizeof(uint32_t), 0);
@@ -97,9 +101,7 @@ namespace sg
 
             sg_vector_destroy(&vector);
         }
-        #endif
 
-        #if DEBUG_TEST_ENABLE_EMPLACE
         TEST(sg_vector, emplace)
         {
             sg_vector vector = sg_vector_create(0, sizeof(uint32_t), 0);
@@ -113,9 +115,7 @@ namespace sg
 
             sg_vector_destroy(&vector);
         }
-        #endif
 
-        #if DEBUG_TEST_ENABLE_PUSH
         TEST(sg_vector, push)
         {
             sg_vector vector = sg_vector_create(0, sizeof(uint32_t), 0);
@@ -128,7 +128,6 @@ namespace sg
 
             sg_vector_destroy(&vector);
         }
-        #endif
 
         TEST(sg_hash_table, create)
         {
@@ -176,12 +175,12 @@ namespace sg
         {
             sg_hash_table table = sg_hash_table_create(0, sizeof(uint32_t), 0.6f, NULL);
 
-            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 sg_hash_table_insert(&table, i, &i);
             }
 
-            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 u32* p = NULL;
                 bool found = sg_hash_table_find(&table, i, (void**)&p);
@@ -196,18 +195,18 @@ namespace sg
         {
             sg_hash_table table = sg_hash_table_create(0, sizeof(uint32_t), 0.6f, NULL);
 
-            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 sg_hash_table_insert(&table, i, &i);
             }
 
-            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 if (i % 3 == 0)
                     sg_hash_table_remove(&table, i);
             }
 
-            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 u32* p = NULL;
                 bool found = sg_hash_table_find(&table, i, (void**)&p);
