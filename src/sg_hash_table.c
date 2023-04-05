@@ -1,17 +1,18 @@
 #include "sg_hash_table.h"
 #include "sg_allocator.h"
 #include "sg_assert.h"
+#include <math.h>
 
 #define SG_HASH_TABLE_IDX_NULL ~0U
 #define SG_HASH_TABLE_KEY_NULL ~0U
 #define SG_HASH_TABLE_VAL_NULL 0U
-#define SG_HASH_TABLE_GROWTH_FACTOR 0.25f
+
+static const float s_golden_ratio = 1.61803398875f; // (sqrt(5) + 1)/2
 
 static inline u32 sg_hash(u32 key, u32 table_size)
 {
     // multiplication hash floor( n( kA mod 1 ) )
-    float A = 1.61803398875f;
-    float a = (float)key * A;
+    float a = (float)key * s_golden_ratio;
     float b = a - floorf(a);
     float c = (float)table_size * b;
     u32 h = (u32)floorf(c);
@@ -76,9 +77,10 @@ static inline sg_hash_table_grow_if_necessary(sg_hash_table* p_table)
 
     if (load_factor > p_table->_load_factor)
     {
-        float growth_factor = p_table->_load_factor * SG_HASH_TABLE_GROWTH_FACTOR;
-        u64 capacity_curr = (u64)ceilf((1.0f / growth_factor) * (float)(p_table->_size + 1));
         u64 capacity_prev = p_table->_capacity;
+        u64 capacity_curr = p_table->_capacity * 2;
+        if (capacity_curr == 0)
+            capacity_curr = 4;
 
         u32* p_keys = p_table->_keys;
         u8* p_data = p_table->_data;
@@ -159,6 +161,7 @@ u8 sg_hash_table_find(sg_hash_table* p_table, u32 key, void** pp_data)
 
     return found;
 }
+    static u8 s = 0;
 
 void sg_hash_table_insert(sg_hash_table* p_table, u32 key, void* p_value)
 {
@@ -170,10 +173,10 @@ void sg_hash_table_insert(sg_hash_table* p_table, u32 key, void* p_value)
 
     SG_ASSERT(index != SG_HASH_TABLE_IDX_NULL);
 
+    p_table->_size += 1;
+
     p_table->_keys[index] = key;
     memcpy_s(p_table->_data + index * p_table->_stride, p_table->_stride, p_value, p_table->_stride);
-
-    p_table->_size += 1;
 }
 
 void* sg_hash_table_insert_inline(sg_hash_table* p_table, u32 key)
@@ -185,6 +188,8 @@ void* sg_hash_table_insert_inline(sg_hash_table* p_table, u32 key)
     sg_hash_table_search(p_table, hash, key, &index);
 
     SG_ASSERT(index != SG_HASH_TABLE_IDX_NULL);
+
+    p_table->_size += 1;
 
     p_table->_keys[index] = key;
     return p_table->_data + index * p_table->_stride;

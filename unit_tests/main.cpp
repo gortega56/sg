@@ -1,5 +1,6 @@
 #include <functional>
 #include <gtest/gtest.h>
+#include <stdio.h>
 
 extern "C" 
 {
@@ -9,6 +10,17 @@ extern "C"
 }
 
 #define VECTOR_SIZE 4096
+
+struct custom_type
+{
+    enum { MAX_MSG = 256 };
+    char sz_message[MAX_MSG];
+    u32 hash = 0;
+};
+
+sg_slice_define_type_ext(custom_type_slice, custom_type)
+sg_vector_define_type_ext(custom_type_vector, custom_type)
+sg_hash_table_define_type_ext(custom_type_table, custom_type);
 
 #define HASH_TABLE_LOAD_FACTOR 0.6f
 #define HASH_TABLE_SIZE 4096
@@ -25,11 +37,39 @@ namespace sg
 
             sg_slice slice = sg_slice_make(p_arr, VECTOR_SIZE / 2, VECTOR_SIZE / 2, sizeof(u32));
             for (u32 i = 0; i < slice._count; ++i)
-                ASSERT_TRUE(sg_slice_at(&slice, u32, i) == VECTOR_SIZE / 2 + i);
+                ASSERT_TRUE(*(u32*)sg_slice_data(&slice, i) == VECTOR_SIZE / 2 + i);
 
             sg_slice sub = sg_slice_to_slice(&slice, slice._count / 2, slice._count / 2);
             for (u32 i = 0; i < sub._count; ++i)
-                ASSERT_TRUE(sg_slice_at(&sub, u32, i) == (VECTOR_SIZE - VECTOR_SIZE / 4) + i);
+                ASSERT_TRUE(*(u32*)sg_slice_data(&sub, i) == (VECTOR_SIZE - VECTOR_SIZE / 4) + i);
+            delete[] p_arr;
+        }
+
+        TEST(sg_slice, type_ext)
+        {
+            custom_type* p_arr = new custom_type[VECTOR_SIZE];
+            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            {
+                snprintf(p_arr[i].sz_message, custom_type::MAX_MSG, "%u", i);
+                p_arr[i].hash = i;
+            }
+
+            custom_type_slice slice = custom_type_slice_make(p_arr, VECTOR_SIZE / 2, VECTOR_SIZE / 2);
+            for (u32 i = 0; i < slice._count; ++i)
+            {
+                custom_type* p_type = custom_type_slice_data(&slice, i);
+                ASSERT_TRUE((u32)atoi(p_type->sz_message) == VECTOR_SIZE / 2 + i);
+                ASSERT_TRUE(p_type->hash == VECTOR_SIZE / 2 + i);
+            }
+
+            custom_type_slice sub = custom_type_slice_to_slice(&slice, slice._count / 2, slice._count / 2);
+            for (u32 i = 0; i < sub._count; ++i)
+            {
+                custom_type* p_type = custom_type_slice_data(&sub, i);
+                ASSERT_TRUE((u32)atoi(p_type->sz_message) == (VECTOR_SIZE - VECTOR_SIZE / 4) + i);
+                ASSERT_TRUE(p_type->hash == (VECTOR_SIZE - VECTOR_SIZE / 4) + i);
+            }
+
             delete[] p_arr;
         }
 
@@ -129,6 +169,36 @@ namespace sg
             sg_vector_destroy(&vector);
         }
 
+        TEST(sg_vector, type_ext)
+        {
+            custom_type_vector vector = custom_type_vector_create(0, 0);
+            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            {
+                if (i % 2 == 0)
+                {
+                    custom_type* p_type = custom_type_vector_emplace(&vector);
+                    snprintf(p_type->sz_message, custom_type::MAX_MSG, "%u", i);
+                    p_type->hash = i;
+                }
+                else
+                {
+                    custom_type type;
+                    snprintf(type.sz_message, custom_type::MAX_MSG, "%u", i);
+                    type.hash = i;
+                    custom_type_vector_push(&vector, type);
+                }
+            }
+
+            for (u32 i = 0; i < VECTOR_SIZE; ++i)
+            {
+                custom_type* p_type = custom_type_vector_data(&vector, i);
+                ASSERT_TRUE((u32)atoi(p_type->sz_message) == i);
+                ASSERT_TRUE(p_type->hash == i);
+            }
+
+            custom_type_vector_destroy(&vector);
+        }
+
         TEST(sg_hash_table, create)
         {
             sg_hash_table table = sg_hash_table_create(HASH_TABLE_SIZE, sizeof(uint32_t), HASH_TABLE_LOAD_FACTOR, NULL);
@@ -177,7 +247,14 @@ namespace sg
 
             for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
-                sg_hash_table_insert(&table, i, &i);
+                if (i % 2 == 0)
+                {
+                    sg_hash_table_insert(&table, i, &i);
+                }
+                else
+                {
+                    *(u32*)sg_hash_table_insert_inline(&table, i) = i;
+                }
             }
 
             for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
@@ -222,6 +299,51 @@ namespace sg
             }
 
             sg_hash_table_destroy(&table);
+        }
+
+        TEST(sg_hash_table, type_ext)
+        {
+            custom_type_table table = custom_type_table_create(0, 0.6f, NULL);
+
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
+            {
+                if (i % 2 == 0)
+                {
+                    custom_type* p_type = custom_type_table_insert_inline(&table, i);
+                    snprintf(p_type->sz_message, custom_type::MAX_MSG, "%u", i);
+                    p_type->hash = i;
+                }
+                else
+                {
+                    custom_type type;
+                    snprintf(type.sz_message, custom_type::MAX_MSG, "%u", i);
+                    type.hash = i;
+                    custom_type_table_insert(&table, i, type);
+                }
+            }
+
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
+            {
+                if (i % 3 == 0)
+                    custom_type_table_remove(&table, i);
+            }
+
+            for (u32 i = 0; i < HASH_TABLE_SIZE; ++i)
+            {
+                custom_type* p_type = NULL;
+                bool found = custom_type_table_find(&table, i, &p_type);
+                if (i % 3 == 0)
+                {
+                    ASSERT_FALSE(found);
+                }
+                else
+                {
+                    ASSERT_TRUE((u32)atoi(p_type->sz_message) == i);
+                    ASSERT_TRUE(p_type->hash == i);
+                }
+            }
+
+            custom_type_table_destroy(&table);
         }
     }
 }

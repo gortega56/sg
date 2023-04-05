@@ -26,3 +26,12 @@ void sg_hash_table_insert(sg_hash_table* p_table, u32 key, void* p_value);
 void* sg_hash_table_insert_inline(sg_hash_table* p_table, u32 key);
 
 void sg_hash_table_remove(sg_hash_table* p_table, u32 key);
+
+#define sg_hash_table_define_type_ext(hash_table_type, element_type)\
+typedef sg_hash_table hash_table_type;\
+inline hash_table_type hash_table_type##_create(u32 size, float load_factor, sg_allocator* p_allocator) { return sg_hash_table_create(size, sizeof(element_type), load_factor, p_allocator); }\
+inline void hash_table_type##_destroy(hash_table_type* p_table) { sg_hash_table_destroy(p_table); }\
+inline u8 hash_table_type##_find(hash_table_type* p_table, u32 key, element_type** pp_element) { return sg_hash_table_find(p_table, key, (void**)pp_element); }\
+inline void hash_table_type##_insert(hash_table_type* p_table, u32 key, element_type element) { sg_hash_table_insert(p_table, key, &element); }\
+inline element_type* hash_table_type##_insert_inline(hash_table_type* p_table, u32 key) { return (element_type*)sg_hash_table_insert_inline(p_table, key); }\
+inline void hash_table_type##_remove(hash_table_type* p_table, u32 key) { sg_hash_table_remove(p_table, key); }

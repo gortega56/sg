@@ -1,7 +1,6 @@
 #include "sg_vector.h"
 #include "sg_allocator.h"
 #include "sg_assert.h"
-#include <math.h>
 
 static inline void memclear(void* p_data, u64 size)
 {
