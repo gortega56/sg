@@ -86,6 +86,22 @@ u32 sg_vector_push(sg_vector* p_vector, void* p_element)
     return index;
 }
 
+void sg_vector_erase(sg_vector* p_vector, u32 index)
+{
+    SG_ASSERT(index < p_vector->_size);
+
+    u32 i = index + 1;
+    while (i < p_vector->_size)
+    {
+        u32 curr = i * p_vector->_stride;
+        u32 prev = (i - 1) * p_vector->_stride;
+        memcpy_s(p_vector->_buffer._allocator + prev, p_vector->_stride, p_vector->_buffer._allocator + curr, p_vector->_stride);
+        ++i;
+    }
+
+    p_vector->_size -= 1;
+}
+
 u32 sg_vector_size(sg_vector* p_vector)
 {
     return p_vector->_size;

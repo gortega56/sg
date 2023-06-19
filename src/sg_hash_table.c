@@ -228,3 +228,10 @@ void sg_hash_table_remove(sg_hash_table* p_table, u32 key)
         memset(p_table->_data + slot_end * p_table->_stride, SG_HASH_TABLE_VAL_NULL, p_table->_stride);
     }
 }
+
+void sg_hash_table_clear(sg_hash_table* p_table)
+{
+    memset(p_table->_keys, SG_HASH_TABLE_KEY_NULL, sizeof(u32) * p_table->_capacity);
+    memset(p_table->_data, SG_HASH_TABLE_VAL_NULL, p_table->_stride * p_table->_capacity);
+    p_table->_size = 0;
+}

@@ -25,6 +25,8 @@ void* sg_vector_emplace(sg_vector* p_vector);
 
 u32 sg_vector_push(sg_vector* p_vector, void* p_element);
 
+void sg_vector_erase(sg_vector* p_vector, u32 index);
+
 u32 sg_vector_size(sg_vector* p_vector);
 
 u8 sg_vector_any(sg_vector* p_vector);
