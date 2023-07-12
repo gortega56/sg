@@ -120,6 +120,14 @@ void* sg_vector_data(sg_vector* p_vector, u32 index)
     return sg_buffer_data(&p_vector->_buffer, index * p_vector->_stride);
 }
 
+void* sg_vector_back(sg_vector* p_vector)
+{
+    SG_ASSERT(p_vector->_buffer._allocation);
+    SG_ASSERT(p_vector->_size > 0);
+
+    return sg_buffer_data(&p_vector->_buffer, (p_vector->_size - 1) * p_vector->_stride);
+}
+
 sg_slice sg_vector_to_slice(sg_vector* p_vector, u32 offset, u32 size)
 {
     SG_ASSERT(p_vector != NULL);
