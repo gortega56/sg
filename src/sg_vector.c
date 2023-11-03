@@ -50,17 +50,13 @@ void sg_vector_resize(sg_vector* p_vector, u32 size)
 void* sg_vector_emplace(sg_vector* p_vector)
 {
     u32 byte_offset = p_vector->_size * p_vector->_stride;
-
-    if (p_vector->_capacity <= p_vector->_size)
+    u64 size = p_vector->_size + 1;
+    if (p_vector->_capacity < size)
     {
-        u64 size = p_vector->_size;
-        if (size == 0)
-            size = 1;
-        
         sg_vector_reserve(p_vector, size * 2ull);
     }
 
-    p_vector->_size += 1;
+    p_vector->_size = size;
 
     return &p_vector->_buffer._allocation[byte_offset];
 }
@@ -69,19 +65,15 @@ u32 sg_vector_push(sg_vector* p_vector, void* p_element)
 {
     u32 index = p_vector->_size;
     u32 byte_offset = index * p_vector->_stride;
-
-    if (p_vector->_capacity <= p_vector->_size)
+    u64 size = p_vector->_size + 1;
+    if (p_vector->_capacity < size)
     {
-        u64 size = p_vector->_size;
-        if (size == 0)
-            size = 1;
-        
         sg_vector_reserve(p_vector, size * 2ull);
     }
     
     memcpy_s(p_vector->_buffer._allocation + byte_offset, p_vector->_stride, p_element, p_vector->_stride);
 
-    p_vector->_size += 1;
+    p_vector->_size = size;
 
     return index;
 }
@@ -95,7 +87,7 @@ void sg_vector_erase(sg_vector* p_vector, u32 index)
     {
         u32 curr = i * p_vector->_stride;
         u32 prev = (i - 1) * p_vector->_stride;
-        memcpy_s(p_vector->_buffer._allocator + prev, p_vector->_stride, p_vector->_buffer._allocator + curr, p_vector->_stride);
+        memcpy_s(p_vector->_buffer._allocation + prev, p_vector->_stride, p_vector->_buffer._allocation + curr, p_vector->_stride);
         ++i;
     }
 
