@@ -7,89 +7,96 @@
 #define SG_HASH_TABLE_KEY_NULL ~0U
 #define SG_HASH_TABLE_VAL_NULL 0U
 
-static const float s_golden_ratio = 1.61803398875f; // (sqrt(5) + 1)/2
+static const sg_u32 s_minimum_capacity = 4;
 
-static inline u32 sg_hash(u32 key, u32 table_size)
+static inline sg_f32 sg_load_factor(sg_u32 size, sg_u32 capacity)
 {
-    // multiplication hash floor( n( kA mod 1 ) )
-    float a = (float)key * s_golden_ratio;
-    float b = a - floorf(a);
-    float c = (float)table_size * b;
-    u32 h = (u32)floorf(c);
-    return h;
+    return (sg_f32)size / (sg_f32)capacity;
 }
 
-static inline u8 sg_hash_table_search(sg_hash_table* p_table, u32 hash, u32 key, u32* p_index)
+static inline sg_u32 sg_probe_length(sg_u32 idx_start, sg_u32 idx, sg_u32 capacity)
 {
-    u32 slot_start = hash;
-    u32 slot_offset = 0;
+    if (idx_start <= idx) return idx - idx_start;
+    return idx + capacity - idx_start;
+}
 
-    while (slot_offset < p_table->_capacity)
+static inline sg_u32 sg_idx_start(sg_u32 key, sg_u32 table_size)
+{
+    // https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
+    sg_u64 fib = (11400714819323198485ull * (sg_u64)key) & 0xffffffff;
+    return (sg_u32)((fib * (sg_u64)table_size) >> 32ull);
+}
+
+static inline sg_u8 sg_search(sg_u32* p_keys, sg_u32 key, sg_u32 capacity, sg_u32 probe_length, sg_u32* p_idx)
+{
+    /*
+    1. find the start idx
+    2. loop(max probe_lenth) until matching hash has been found
+    */
+    sg_u32 idx_start = sg_idx_start(key, capacity);
+    sg_u32 idx = idx_start;
+    sg_u32 probe = 0;
+    while (probe <= probe_length)
     {
-        u32 index = (slot_start + slot_offset) % p_table->_capacity;
-        if (p_table->_keys[index] == key)
+        if (idx > capacity)
+            idx = idx - capacity;
+
+        if (p_keys[idx] == key)
         {
-            *p_index = index;
+            if (p_idx)
+                *p_idx = idx;
+
             return 1;
         }
 
-        if (p_table->_keys[index] == SG_HASH_TABLE_KEY_NULL)
-        {
-            *p_index = index;
-            return 0;
-        }
-
-        slot_offset += 1;
+        idx += 1;
+        probe += 1;
     }
-
-    *p_index = SG_HASH_TABLE_IDX_NULL;
 
     return 0;
 }
 
-static inline sg_hash_table_rehash(sg_hash_table* p_table, u32* p_keys, u8* p_data, u32 capacity)
+static inline void sg_erase_key(sg_u32* p_keys, sg_u32 idx)
 {
-    u32 index_prev = 0;
-    while (index_prev < capacity)
+    p_keys[idx] = SG_HASH_TABLE_KEY_NULL;
+}
+
+static inline void sg_erase_val(sg_u8* p_data, sg_u32 idx, sg_u32 stride)
+{
+    memset(p_data + idx * stride, SG_HASH_TABLE_VAL_NULL, stride);
+}
+
+static inline void sg_hash_table_rehash(sg_hash_table* p_table, sg_u32* p_keys, sg_u8* p_data, sg_u32 capacity)
+{
+    sg_u32 idx = 0;
+    while (idx < capacity)
     {
-        if (p_keys[index_prev] != SG_HASH_TABLE_KEY_NULL)
+        sg_u32 key = p_keys[idx];
+        if (key != SG_HASH_TABLE_KEY_NULL)
         {
-            u32 key = p_keys[index_prev];
-            u32 hash = sg_hash(key, p_table->_capacity);
-            u32 index_curr = SG_HASH_TABLE_IDX_NULL;
-            sg_hash_table_search(p_table, hash, key, &index_curr);
-
-            SG_ASSERT(index_curr != SG_HASH_TABLE_IDX_NULL);
-
-            p_table->_keys[index_curr] = key;
-            memcpy_s(p_table->_data + index_curr * p_table->_stride, p_table->_stride, p_data + index_prev * p_table->_stride, p_table->_stride);
+            sg_hash_table_insert(p_table, key, p_data + idx * p_table->_stride);
         }
 
-        index_prev += 1;
+        idx += 1;
     }
 }
 
-static inline sg_hash_table_grow_if_necessary(sg_hash_table* p_table)
+static inline void sg_hash_table_resize(sg_hash_table* p_table, sg_u32 capacity)
 {
-    float load_factor = (p_table->_capacity == 0)
-        ? 1.0f
-        : (float)(p_table->_size + 1) / (float)p_table->_capacity;
-
-    if (load_factor > p_table->_load_factor)
+    if (p_table->_capacity < capacity)
     {
-        u64 capacity_prev = p_table->_capacity;
-        u64 capacity_curr = p_table->_capacity * 2;
-        if (capacity_curr == 0)
-            capacity_curr = 4;
+        sg_u64 capacity_prev = p_table->_capacity;
+        sg_u64 capacity_curr = capacity;
 
-        u32* p_keys = p_table->_keys;
-        u8* p_data = p_table->_data;
+        sg_u32* p_keys = p_table->_keys;
+        sg_u8* p_data = p_table->_data;
 
-        u64 key_data_length = capacity_curr * sizeof(u32);
-        u64 val_data_length = capacity_curr * p_table->_stride;
+        // Alloc 1 space more than necessary for capacity and use that to swap during remove
+        sg_u64 key_data_length = capacity_curr * sizeof(sg_u32);
+        sg_u64 val_data_length = (1 + capacity_curr) * p_table->_stride; 
 
-        p_table->_keys = (u32*)p_table->p_allocator->allocate(key_data_length, p_table->p_allocator->p_user_data);
-        p_table->_data = (u8*)p_table->p_allocator->allocate(val_data_length, p_table->p_allocator->p_user_data);
+        p_table->_keys = (sg_u32*)p_table->p_allocator->allocate(key_data_length, p_table->p_allocator->p_user_data);
+        p_table->_data = (sg_u8*)p_table->p_allocator->allocate(val_data_length, p_table->p_allocator->p_user_data);
         p_table->_capacity = capacity_curr;
 
         memset(p_table->_keys, SG_HASH_TABLE_KEY_NULL, key_data_length);
@@ -103,31 +110,46 @@ static inline sg_hash_table_grow_if_necessary(sg_hash_table* p_table)
     }
 }
 
-sg_hash_table sg_hash_table_create(u32 size, u32 stride, float load_factor, sg_allocator* p_allocator)
+static inline void sg_hash_table_resize_if_necessary(sg_hash_table* p_table)
+{
+    sg_u8 resize = 0;
+    if (p_table->_load_factor < sg_load_factor(p_table->_size, p_table->_capacity))
+        resize = 1;
+
+    if (p_table->_capacity < s_minimum_capacity)
+        resize = 1;
+
+    if (resize)
+    {
+        sg_u32 capacity = p_table->_capacity * 2U;
+        if (capacity < s_minimum_capacity)
+            capacity = s_minimum_capacity;
+
+        sg_hash_table_resize(p_table, capacity);
+    }
+}
+
+
+sg_hash_table sg_hash_table_create(sg_u32 capacity, sg_u32 stride, sg_f32 load_factor, sg_allocator* p_allocator)
 {
     if (p_allocator == NULL)
         p_allocator = &s_allocator_default;
 
-    void* p_keys = NULL;
-    void* p_data = NULL;
-    if (size != 0)
-    {
-        u64 key_data_length = size * sizeof(u32);
-        u64 val_data_length = size * stride;
-        p_keys = (u32*)p_allocator->allocate(key_data_length, p_allocator->p_user_data);
-        p_data = (u8*)p_allocator->allocate(val_data_length, p_allocator->p_user_data);
-        memset(p_keys, SG_HASH_TABLE_KEY_NULL, key_data_length);
-        memset(p_data, SG_HASH_TABLE_VAL_NULL, val_data_length);
-    }
-
     sg_hash_table table;
     table.p_allocator = p_allocator;
-    table._keys = p_keys;
-    table._data = p_data;
-    table._capacity = size;
+    table._keys = NULL;
+    table._data = NULL;
+    table._capacity = 0;
     table._size = 0;
     table._stride = stride;
+    table._probe_length = 0;
     table._load_factor = load_factor;
+
+    if (capacity < s_minimum_capacity)
+        capacity = s_minimum_capacity;
+
+    sg_hash_table_resize(&table, capacity);
+
     return table;
 }
 
@@ -146,92 +168,109 @@ void sg_hash_table_destroy(sg_hash_table* p_table)
     p_table->_size = 0;
     p_table->_stride = 0;
     p_table->_load_factor = 0.0f;
+    p_table->_probe_length = 0;
 }
 
-u8 sg_hash_table_find(sg_hash_table* p_table, u32 key, void** pp_data)
+void sg_hash_table_reserve(sg_hash_table* p_table, sg_u32 size)
 {
-    u32 hash = sg_hash(key, p_table->_capacity);
-    u32 index = SG_HASH_TABLE_IDX_NULL;
-    u8 found = sg_hash_table_search(p_table, hash, key, &index);
+    sg_u32 capacity = (sg_u32)((sg_f32)size * (1.0f / p_table->_load_factor));
+    if (capacity < s_minimum_capacity)
+        capacity = s_minimum_capacity;
+
+    sg_hash_table_resize(p_table, capacity);
+}   
+
+sg_u32 sg_hash_table_size(sg_hash_table* p_table, sg_u32 size)
+{
+    return p_table->_size;
+}
+
+sg_u8 sg_hash_table_find(sg_hash_table* p_table, sg_u32 key, void** pp_data)
+{
+    sg_u32 idx = SG_HASH_TABLE_IDX_NULL;
+    sg_u8 found = sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, &idx);
     if (found)
     {
         if (pp_data)
-            *pp_data = p_table->_data + index * p_table->_stride;
+            *pp_data = p_table->_data + idx * p_table->_stride;
     }
 
     return found;
 }
-    static u8 s = 0;
 
-void sg_hash_table_insert(sg_hash_table* p_table, u32 key, void* p_value)
+
+/*
+    1. Find start slot
+    2. Loop (capacity) until null hash is found
+    3. Insert
+*/
+void* sg_hash_table_emplace(sg_hash_table* p_table, sg_u32 key)
 {
-    sg_hash_table_grow_if_necessary(p_table);
+    sg_hash_table_resize_if_necessary(p_table);
 
-    u32 hash = sg_hash(key, p_table->_capacity);
-    u32 index = SG_HASH_TABLE_IDX_NULL;
-    sg_hash_table_search(p_table, hash, key, &index);
+    sg_u32 idx_start = sg_idx_start(key, p_table->_capacity);
+    sg_u32 idx = idx_start;
+    sg_u32 probe = 0;
+    while (1)
+    {
+        if (p_table->_keys[idx] == SG_HASH_TABLE_KEY_NULL)
+        {
+            p_table->_keys[idx] = key;
+            p_table->_size += 1;
+            if (p_table->_probe_length < probe)
+                p_table->_probe_length = probe;
 
-    SG_ASSERT(index != SG_HASH_TABLE_IDX_NULL);
+            return p_table->_data + idx * p_table->_stride;
+        }
 
-    p_table->_size += 1;
-
-    p_table->_keys[index] = key;
-    memcpy_s(p_table->_data + index * p_table->_stride, p_table->_stride, p_value, p_table->_stride);
+        idx = (idx + 1) % p_table->_capacity;
+        probe += 1;
+    }
 }
 
-void* sg_hash_table_insert_inline(sg_hash_table* p_table, u32 key)
+void sg_hash_table_insert(sg_hash_table* p_table, sg_u32 key, void* p_value)
 {
-    sg_hash_table_grow_if_necessary(p_table);
-
-    u32 hash = sg_hash(key, p_table->_capacity);
-    u32 index = SG_HASH_TABLE_IDX_NULL;
-    sg_hash_table_search(p_table, hash, key, &index);
-
-    SG_ASSERT(index != SG_HASH_TABLE_IDX_NULL);
-
-    p_table->_size += 1;
-
-    p_table->_keys[index] = key;
-    return p_table->_data + index * p_table->_stride;
+    void* p_val = sg_hash_table_emplace(p_table, key);
+    memcpy_s(p_val, p_table->_stride, p_value, p_table->_stride);
 }
 
-void sg_hash_table_remove(sg_hash_table* p_table, u32 key)
+void sg_hash_table_remove(sg_hash_table* p_table, sg_u32 key)
 {
-    u32 hash = sg_hash(key, p_table->_capacity);
-    u32 index = SG_HASH_TABLE_IDX_NULL;
-    u8 found = sg_hash_table_search(p_table, hash, key, &index);
+    sg_u32 idx = SG_HASH_TABLE_IDX_NULL;
+    sg_u8 found = sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, &idx);
     if (found)
     {
-        u32 slot_start = index;
-        u32 slot_count = 0;
+        sg_erase_key(p_table->_keys, idx);
+        sg_erase_val(p_table->_data, idx, p_table->_stride);
+        p_table->_size -= 1;
 
-        // Probe for last slot
-        while (slot_count < p_table->_capacity)
+        idx = (idx + 1) % p_table->_capacity;
+
+        while (p_table->_keys[idx] != SG_HASH_TABLE_KEY_NULL)
         {
-            u32 i = (slot_start + slot_count) % p_table->_capacity;
-            if (hash != sg_hash(p_table->_keys[i], p_table->_capacity))
-                break;
+            sg_u32 key = p_table->_keys[idx];
+            sg_u8* p_val = p_table->_data + idx * p_table->_stride;
+            sg_u8* p_temp = p_table->_data + p_table->_capacity * p_table->_stride;
+            memcpy_s(p_temp, p_table->_stride, p_val, p_table->_stride);
 
-            slot_count += 1;
+            sg_erase_key(p_table->_keys, idx);
+            sg_erase_val(p_table->_data, idx, p_table->_stride);
+            p_table->_size -= 1;
+
+            sg_hash_table_insert(p_table, key, p_temp);
+
+            idx = (idx + 1) % p_table->_capacity;
         }
 
-        // Swap current slot with last slot
-        u32 slot_end = slot_start + slot_count - 1;
-        if (slot_start != slot_end)
-        {
-            p_table->_keys[slot_start] = p_table->_keys[slot_end];
-            memcpy_s(p_table->_data + slot_start * p_table->_stride, p_table->_stride, p_table->_data + slot_end * p_table->_stride, p_table->_stride);
-        }
-
-        // Set last slot null
-        p_table->_keys[slot_end] = SG_HASH_TABLE_KEY_NULL;
-        memset(p_table->_data + slot_end * p_table->_stride, SG_HASH_TABLE_VAL_NULL, p_table->_stride);
+        if (p_table->_size == 0)
+            p_table->_probe_length = 0;
     }
 }
 
 void sg_hash_table_clear(sg_hash_table* p_table)
 {
-    memset(p_table->_keys, SG_HASH_TABLE_KEY_NULL, sizeof(u32) * p_table->_capacity);
+    memset(p_table->_keys, SG_HASH_TABLE_KEY_NULL, sizeof(sg_u32) * p_table->_capacity);
     memset(p_table->_data, SG_HASH_TABLE_VAL_NULL, p_table->_stride * p_table->_capacity);
     p_table->_size = 0;
+    p_table->_probe_length = 0;
 }

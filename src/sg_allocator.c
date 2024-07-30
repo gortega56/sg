@@ -1,7 +1,7 @@
 #include "sg_allocator.h"
 #include <stdlib.h>
 
-static inline void* sg_allocator_malloc(u64 size, void* p_user_data)
+static inline void* sg_allocator_malloc(sg_u64 size, void* p_user_data)
 {
     return malloc(size);
 }
@@ -11,7 +11,7 @@ inline void sg_allocator_free(void* p_allocation, void* p_user_data)
     free(p_allocation);
 }
 
-inline void* sg_allocator_realloc(void* p_allocation, u64 size, void* p_user_data)
+inline void* sg_allocator_realloc(void* p_allocation, sg_u64 size, void* p_user_data)
 {
     return realloc(p_allocation, size);
 }

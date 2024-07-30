@@ -5,15 +5,16 @@ typedef struct sg_allocator sg_allocator;
 
 typedef struct sg_buffer
 {
-    sg_allocator* _allocator;
-    u8* _allocation;
-    u64 _size;
+    sg_allocator* allocator;
+    sg_u8* allocation;
+    sg_u64 size;
 } sg_buffer;
 
-sg_buffer sg_buffer_create(u64 size, sg_allocator* p_allocator);
+sg_buffer sg_buffer_create(sg_u64 size, sg_allocator* p_allocator);
 
 void sg_buffer_destroy(sg_buffer* p_buffer);
 
-void* sg_buffer_data(sg_buffer* p_buffer, u32 offset);
+void sg_buffer_resize(sg_buffer* p_buffer, sg_u64 size);
 
-void sg_buffer_expand(sg_buffer* p_buffer, u64 size);
+void* sg_buffer_data(sg_buffer* p_buffer, sg_u32 offset);
+
