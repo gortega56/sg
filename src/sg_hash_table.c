@@ -3,10 +3,6 @@
 #include "sg_assert.h"
 #include <math.h>
 
-#define SG_HASH_TABLE_IDX_NULL ~0U
-#define SG_HASH_TABLE_KEY_NULL ~0U
-#define SG_HASH_TABLE_VAL_NULL 0U
-
 static const sg_u32 s_minimum_capacity = 4;
 
 static inline sg_f32 sg_load_factor(sg_u32 size, sg_u32 capacity)
@@ -180,12 +176,27 @@ void sg_hash_table_reserve(sg_hash_table* p_table, sg_u32 size)
     sg_hash_table_resize(p_table, capacity);
 }   
 
-sg_u32 sg_hash_table_size(sg_hash_table* p_table, sg_u32 size)
+sg_u32 sg_hash_table_size(sg_hash_table* p_table)
 {
     return p_table->_size;
 }
 
-sg_u8 sg_hash_table_find(sg_hash_table* p_table, sg_u32 key, void** pp_data)
+sg_u32 sg_hash_table_capacity(sg_hash_table* p_table)
+{
+    return p_table->_capacity;
+}
+
+sg_u8 sg_hash_table_find(sg_hash_table* p_table, sg_u32 key)
+{
+    return sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, NULL);
+}
+
+sg_u8 sg_hash_table_find_index(sg_hash_table* p_table, sg_u32 key, sg_u32* p_idx)
+{
+    return sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, p_idx);
+}
+
+sg_u8 sg_hash_table_find_value(sg_hash_table* p_table, sg_u32 key, void** pp_data)
 {
     sg_u32 idx = SG_HASH_TABLE_IDX_NULL;
     sg_u8 found = sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, &idx);
@@ -234,11 +245,10 @@ void sg_hash_table_insert(sg_hash_table* p_table, sg_u32 key, void* p_value)
     memcpy_s(p_val, p_table->_stride, p_value, p_table->_stride);
 }
 
-void sg_hash_table_remove(sg_hash_table* p_table, sg_u32 key)
+void sg_hash_table_remove_at_index(sg_hash_table* p_table, sg_u32 idx)
 {
-    sg_u32 idx = SG_HASH_TABLE_IDX_NULL;
-    sg_u8 found = sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, &idx);
-    if (found)
+    SG_ASSERT(idx < p_table->_capacity);
+    if (p_table->_keys[idx] != SG_HASH_TABLE_KEY_NULL)
     {
         sg_erase_key(p_table->_keys, idx);
         sg_erase_val(p_table->_data, idx, p_table->_stride);
@@ -267,15 +277,20 @@ void sg_hash_table_remove(sg_hash_table* p_table, sg_u32 key)
     }
 }
 
+void sg_hash_table_remove(sg_hash_table* p_table, sg_u32 key)
+{
+    sg_u32 idx = SG_HASH_TABLE_IDX_NULL;
+    sg_u8 found = sg_search(p_table->_keys, key, p_table->_capacity, p_table->_probe_length, &idx);
+    if (found)
+    {
+        sg_hash_table_remove_at_index(p_table, idx);
+    }
+}
+
 void sg_hash_table_clear(sg_hash_table* p_table)
 {
     memset(p_table->_keys, SG_HASH_TABLE_KEY_NULL, sizeof(sg_u32) * p_table->_capacity);
     memset(p_table->_data, SG_HASH_TABLE_VAL_NULL, p_table->_stride * p_table->_capacity);
     p_table->_size = 0;
     p_table->_probe_length = 0;
-}
-
-sg_u32 sg_hash_table_key_null()
-{
-    return SG_HASH_TABLE_KEY_NULL;
 }

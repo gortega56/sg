@@ -329,7 +329,7 @@ namespace sg
             for (sg_u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 sg_u32* p = NULL;
-                bool found = sg_hash_table_find(&table, i, (void**)&p);
+                bool found = sg_hash_table_find_value(&table, i, (void**)&p);
                 ASSERT_TRUE(found);
                 ASSERT_TRUE(i == *p);
             }
@@ -355,7 +355,7 @@ namespace sg
             for (sg_u32 i = 0; i < HASH_TABLE_SIZE; ++i)
             {
                 sg_u32* p = NULL;
-                bool found = sg_hash_table_find(&table, i, (void**)&p);
+                bool found = sg_hash_table_find_value(&table, i, (void**)&p);
                 if (i % 3 == 0)
                 {
                     ASSERT_FALSE(found);
@@ -389,9 +389,9 @@ namespace sg
                 sg_u32 k1 = e1.key();
                 sg_u32 k2 = e2.key();
 
-                if (!edge_type_table_find(&table, k0, 0)) edge_type_table_insert(&table, k0, e0);
-                if (!edge_type_table_find(&table, k1, 0)) edge_type_table_insert(&table, k1, e1);
-                if (!edge_type_table_find(&table, k2, 0)) edge_type_table_insert(&table, k2, e2);
+                if (!edge_type_table_find(&table, k0)) edge_type_table_insert(&table, k0, e0);
+                if (!edge_type_table_find(&table, k1)) edge_type_table_insert(&table, k1, e1);
+                if (!edge_type_table_find(&table, k2)) edge_type_table_insert(&table, k2, e2);
             }
 
             for (sg_u32 tri_idx = 0; tri_idx < NUM_PLANE_TRI; ++tri_idx)
@@ -412,9 +412,9 @@ namespace sg
                 edge* p1 = nullptr;
                 edge* p2 = nullptr;
 
-                bool f0 = edge_type_table_find(&table, k0, &p0);
-                bool f1 = edge_type_table_find(&table, k1, &p1);
-                bool f2 = edge_type_table_find(&table, k2, &p2);
+                bool f0 = edge_type_table_find_value(&table, k0, &p0);
+                bool f1 = edge_type_table_find_value(&table, k1, &p1);
+                bool f2 = edge_type_table_find_value(&table, k2, &p2);
 
                 ASSERT_TRUE(f0);
                 ASSERT_TRUE(f1);
