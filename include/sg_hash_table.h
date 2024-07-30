@@ -34,6 +34,8 @@ void sg_hash_table_remove(sg_hash_table* p_table, sg_u32 key);
 
 void sg_hash_table_clear(sg_hash_table* p_table);
 
+sg_u32 sg_hash_table_key_null();
+
 #define SG_HASH_TABLE_DEFINE_TYPE_EXT(hash_table_type, element_type)\
 typedef sg_hash_table hash_table_type;\
 inline hash_table_type hash_table_type##_create(sg_u32 size, sg_f32 load_factor, sg_allocator* p_allocator) { return sg_hash_table_create(size, sizeof(element_type), load_factor, p_allocator); }\

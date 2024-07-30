@@ -274,3 +274,8 @@ void sg_hash_table_clear(sg_hash_table* p_table)
     p_table->_size = 0;
     p_table->_probe_length = 0;
 }
+
+sg_u32 sg_hash_table_key_null()
+{
+    return SG_HASH_TABLE_KEY_NULL;
+}
