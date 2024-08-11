@@ -106,7 +106,6 @@ sg_u8 sg_vector_any(sg_vector* p_vector)
 
 void* sg_vector_data(sg_vector* p_vector, sg_u32 index)
 {
-    SG_ASSERT(p_vector->_buffer.allocation);
     SG_ASSERT(p_vector->_size > index);
 
     return sg_buffer_data(&p_vector->_buffer, index * p_vector->_stride);

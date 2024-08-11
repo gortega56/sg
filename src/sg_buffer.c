@@ -40,7 +40,8 @@ void sg_buffer_resize(sg_buffer* p_buffer, sg_u64 size)
 
 void* sg_buffer_data(sg_buffer* p_buffer, sg_u32 offset)
 {
-    SG_ASSERT(p_buffer->allocation != NULL);
+    if (p_buffer->allocation != NULL)
+        return p_buffer->allocation + offset;
 
-    return p_buffer->allocation + offset;
+    return NULL;
 }
