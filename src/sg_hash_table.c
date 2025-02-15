@@ -81,6 +81,7 @@ static inline void sg_hash_table_resize(sg_hash_table* p_table, sg_u32 capacity)
 {
     if (p_table->_capacity < capacity)
     {
+        sg_u32 size_prev = p_table->_size;
         sg_u64 capacity_prev = p_table->_capacity;
         sg_u64 capacity_curr = capacity;
 
@@ -94,11 +95,12 @@ static inline void sg_hash_table_resize(sg_hash_table* p_table, sg_u32 capacity)
         p_table->_keys = (sg_u32*)p_table->p_allocator->allocate(key_data_length, p_table->p_allocator->p_user_data);
         p_table->_data = (sg_u8*)p_table->p_allocator->allocate(val_data_length, p_table->p_allocator->p_user_data);
         p_table->_capacity = capacity_curr;
+        p_table->_size = 0;
 
         memset(p_table->_keys, SG_HASH_TABLE_KEY_NULL, key_data_length);
         memset(p_table->_data, SG_HASH_TABLE_VAL_NULL, val_data_length);
 
-        if (p_table->_size)
+        if (size_prev)
             sg_hash_table_rehash(p_table, p_keys, p_data, capacity_prev);
 
         if (p_keys) p_table->p_allocator->free(p_keys, p_table->p_allocator->p_user_data);
